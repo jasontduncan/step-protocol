@@ -12,5 +12,5 @@
 | 3 | 3.1 | Implement WorkNode validator | done | logs/p3-s3.1.md |
 | 3 | 3.2 | Implement `worktree audit` | done | logs/p3-s3.2.md |
 | 4 | 4.1 | Create example leaf WorkNode | done | logs/p4-s4.1.md |
-| 4 | 4.2 | Write documentation | todo | - |
+| 4 | 4.2 | Write documentation | done | logs/p4-s4.2.md |
 | 5 | 5.1 | Validate the meta-node against the protocol | todo | - |
