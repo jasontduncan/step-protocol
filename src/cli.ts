@@ -1,5 +1,5 @@
 import path from "node:path";
-import { WorkNode, updateStateEntry } from "./work-node.js";
+import { WorkNode, updateStateEntry, auditWorkNodes } from "./work-node.js";
 import pkg from "../package.json" with { type: "json" };
 
 const AVAILABLE_COMMANDS = ["init", "run", "audit", "status"] as const;
@@ -161,6 +161,41 @@ async function handleInit(args: string[]): Promise<void> {
   }
 }
 
+async function handleAudit(args: string[]): Promise<void> {
+  let target: string;
+  try {
+    target = extractTargetOption(args, DEFAULT_NODE_ROOT);
+  } catch (error) {
+    console.error(`Invalid arguments for audit: ${(error as Error).message}`);
+    return;
+  }
+
+  const results = await auditWorkNodes(target);
+  if (!results.length) {
+    console.log(`No WorkNodes found under ${target}.`);
+    return;
+  }
+
+  let failures = 0;
+  for (const result of results) {
+    if (!result.errors.length) {
+      console.log(`[ok] ${result.layout.root}`);
+    } else {
+      failures += 1;
+      console.log(`[error] ${result.layout.root}`);
+      for (const error of result.errors) {
+        console.log(`  - ${error}`);
+      }
+    }
+  }
+
+  console.log(`Audit completed: ${results.length} nodes checked.`);
+  if (failures) {
+    console.log(`${failures} nodes had validation errors.`);
+    process.exitCode = 1;
+  }
+}
+
 async function handleCommand(command: Command, args: string[]): Promise<void> {
   switch (command) {
     case "init": {
@@ -171,7 +206,10 @@ async function handleCommand(command: Command, args: string[]): Promise<void> {
       await handleRun(args);
       break;
     }
-    case "audit":
+    case "audit": {
+      await handleAudit(args);
+      break;
+    }
     case "status": {
       console.log(`The '${command}' command is not implemented yet.`);
       console.log("Please consult the documentation under docs/work/ for the WorkTree protocol.");

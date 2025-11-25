@@ -581,6 +581,31 @@ export async function validateWorkNode(root: string): Promise<void> {
   }
 }
 
+export interface AuditResult {
+  layout: WorkNodeLayout;
+  errors: string[];
+}
+
+export async function auditWorkNodes(root: string): Promise<AuditResult[]> {
+  const layouts = await discoverWorkNodes(root);
+  const results: AuditResult[] = [];
+  for (const layout of layouts) {
+    const result: AuditResult = { layout, errors: [] };
+    try {
+      await validateWorkNode(layout.root);
+    } catch (error) {
+      const message = (error as Error).message;
+      const lines = message
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length && !line.match(/^WorkNode (validation|layout) failed:/));
+      result.errors.push(...lines.map((line) => line.replace(/^[-*]\s*/, "")));
+    }
+    results.push(result);
+  }
+  return results;
+}
+
 const requiredEntries: Array<{
   name: keyof WorkNodeLayout;
   expected: "file" | "directory";
