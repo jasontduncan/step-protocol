@@ -9,7 +9,7 @@
 | 2 | 2.1 | Implement CLI scaffolding (`worktree` command) | done | logs/p2-s2.1.md |
 | 2 | 2.2 | Implement `worktree run` | done | logs/p2-s2.2.md |
 | 2 | 2.3 | Implement `worktree init` | done | logs/p2-s2.3.md |
-| 3 | 3.1 | Implement WorkNode validator | todo | - |
+| 3 | 3.1 | Implement WorkNode validator | done | logs/p3-s3.1.md |
 | 3 | 3.2 | Implement `worktree audit` | todo | - |
 | 4 | 4.1 | Create example leaf WorkNode | todo | - |
 | 4 | 4.2 | Write documentation | todo | - |

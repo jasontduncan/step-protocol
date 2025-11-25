@@ -213,6 +213,8 @@ const STATE_ROW_REGEX = /^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|
 const STATUS_LINE_REGEX = /^status:\s*.+$/m;
 const COMPLETED_LINE_REGEX = /^completed:\s*.+$/m;
 const VALID_STATUSES: Set<StepStatus> = new Set(["todo", "in-progress", "blocked", "done", "superseded"]);
+const LOG_FILENAME_REGEX = /^p(\d+)-s([0-9]+(?:\.[0-9]+)*)\.md$/;
+const STARTED_LINE_REGEX = /^started:\s*.+$/m;
 
 function parsePlanLines(lines: string[]): PlanStep[] {
   const steps: PlanStep[] = [];
@@ -516,6 +518,66 @@ export function ensurePlanStateConsistency(plan: WorkPlan, state: WorkState): vo
     if (!planMap.has(key)) {
       throw new Error(`STATE.md contains unexpected entry ${key} (${entry.label})`);
     }
+  }
+}
+
+export async function validateWorkNode(root: string): Promise<void> {
+  const node = await WorkNode.load(root);
+  const layout = node.layout;
+  const planSteps = new Map<string, PlanStep>();
+  for (const step of node.plan.steps) {
+    planSteps.set(`${step.phase}:${step.step}`, step);
+  }
+
+  const errors: string[] = [];
+
+  for (const entry of node.state.entries) {
+    if (!entry.progressLog) {
+      continue;
+    }
+    const logPath = path.join(layout.root, entry.progressLog);
+    if (!(await fileExists(logPath))) {
+      errors.push(`state references missing log ${entry.progressLog} for ${entry.phase}.${entry.step}`);
+      continue;
+    }
+    const directories = path.dirname(entry.progressLog);
+    const filename = path.basename(entry.progressLog);
+    if (!LOG_FILENAME_REGEX.test(filename)) {
+      errors.push(`unexpected log filename '${entry.progressLog}' for ${entry.phase}.${entry.step}`);
+    }
+  }
+
+  const entries = await safeReadDir(layout.logsDir);
+  for (const dirent of entries) {
+    if (!dirent.isFile()) {
+      continue;
+    }
+    const name = dirent.name;
+    const match = LOG_FILENAME_REGEX.exec(name);
+    if (!match) {
+      errors.push(`log file ${name} does not follow the p<P>-s<S>.md pattern`);
+      continue;
+    }
+    const logPath = path.join(layout.logsDir, name);
+    if (!(await fileExists(logPath))) {
+      errors.push(`unexpected missing log file ${logPath}`);
+      continue;
+    }
+    const contents = await fs.readFile(logPath, "utf8");
+    if (!STATUS_LINE_REGEX.test(contents)) {
+      errors.push(`log ${name} is missing a status header`);
+    }
+    if (!STARTED_LINE_REGEX.test(contents)) {
+      errors.push(`log ${name} is missing a started header`);
+    }
+    const key = `${match[1]}:${match[2]}`;
+    if (!planSteps.has(key)) {
+      errors.push(`log ${name} refers to unknown plan step ${key}`);
+    }
+  }
+
+  if (errors.length) {
+    throw new Error(`WorkNode validation failed:\n- ${errors.join("\n- ")}`);
   }
 }
 

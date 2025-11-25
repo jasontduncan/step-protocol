@@ -2,3 +2,4 @@ node_modules/
 dist/
 coverage/
 *.log
+prompt_i_used
