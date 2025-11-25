@@ -6,7 +6,7 @@
 | 1 | 1.1 | Implement PLAN and STATE parsers | done | logs/p1-s1.1.md |
 | 1 | 1.2 | Implement WorkNode class / API | done | logs/p1-s1.2.md |
 | 1 | 1.3 | Implement crash-safe mutation helpers | done | logs/p1-s1.3.md |
-| 2 | 2.1 | Implement CLI scaffolding (`worktree` command) | todo | - |
+| 2 | 2.1 | Implement CLI scaffolding (`worktree` command) | done | logs/p2-s2.1.md |
 | 2 | 2.2 | Implement `worktree run` | todo | - |
 | 2 | 2.3 | Implement `worktree init` | todo | - |
 | 3 | 3.1 | Implement WorkNode validator | todo | - |

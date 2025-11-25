@@ -8,6 +8,9 @@
     "build": "tsc",
     "test": "node --test"
   },
+  "bin": {
+    "worktree": "./bin/worktree.js"
+  },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "typescript": "^5.4.0"
