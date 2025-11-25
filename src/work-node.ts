@@ -234,7 +234,7 @@ function parsePlanLines(lines: string[]): PlanStep[] {
       }
       current = {
         phase: Number(declaration[1]),
-        step: declaration[2],
+        step: `${declaration[1]}.${declaration[2]}`,
         label: declaration[3].trim()
       };
       continue;
