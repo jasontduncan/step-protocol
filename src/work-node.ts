@@ -178,6 +178,10 @@ export function parseStateSync(statePath: string): WorkState {
   return new WorkState(parseStateRows(content.split(/\r?\n/)));
 }
 
+function buildStepKey(identifier: Pick<StepIdentifier, "phase" | "step">): string {
+  return `${identifier.phase}:${identifier.step}`;
+}
+
 function parseStepSequence(step: string): number[] {
   return step.split(".").map((segment) => {
     const parsed = Number(segment);
@@ -323,6 +327,44 @@ export async function writeState(statePath: string, state: WorkState): Promise<v
     })
   ];
   await fs.writeFile(statePath, `${lines.join("\n")}\n`, "utf8");
+}
+
+export function ensurePlanStateConsistency(plan: WorkPlan, state: WorkState): void {
+  const planMap = new Map<string, PlanStep>();
+  for (const step of plan.steps) {
+    const key = buildStepKey(step);
+    if (planMap.has(key)) {
+      throw new Error(`PLAN contains duplicate step ${key}`);
+    }
+    planMap.set(key, step);
+  }
+
+  const stateMap = new Map<string, StateRow>();
+  for (const entry of state.entries) {
+    const key = buildStepKey(entry);
+    if (stateMap.has(key)) {
+      throw new Error(`STATE contains duplicate entry ${key}`);
+    }
+    stateMap.set(key, entry);
+  }
+
+  for (const [key, step] of planMap.entries()) {
+    const stateEntry = stateMap.get(key);
+    if (!stateEntry) {
+      throw new Error(`STATE.md is missing entry for plan step ${key} (${step.label})`);
+    }
+    if (stateEntry.label !== step.label) {
+      throw new Error(
+        `label mismatch for ${key}: PLAN label='${step.label}' vs STATE label='${stateEntry.label}'`
+      );
+    }
+  }
+
+  for (const [key, entry] of stateMap.entries()) {
+    if (!planMap.has(key)) {
+      throw new Error(`STATE.md contains unexpected entry ${key} (${entry.label})`);
+    }
+  }
 }
 
 const requiredEntries: Array<{
@@ -501,6 +543,7 @@ export async function loadWorkNode(root: string): Promise<WorkNodeSchema> {
   const layout = await validateWorkNodeLayout(root);
   const plan = await parsePlan(layout.planPath);
   const state = await parseState(layout.statePath);
+  ensurePlanStateConsistency(plan, state);
   return new WorkNodeSchema(layout, plan, state);
 }
 
@@ -508,5 +551,6 @@ export function loadWorkNodeSync(root: string): WorkNodeSchema {
   const layout = validateWorkNodeLayoutSync(root);
   const plan = parsePlanSync(layout.planPath);
   const state = parseStateSync(layout.statePath);
+  ensurePlanStateConsistency(plan, state);
   return new WorkNodeSchema(layout, plan, state);
 }
