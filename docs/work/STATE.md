@@ -4,7 +4,7 @@
 | 0 | 0.2 | Implement WorkNode discovery | done | logs/p0-s0.2.md |
 | 0 | 0.3 | Implement execution protocol helpers | done | logs/p0-s0.3.md |
 | 1 | 1.1 | Implement PLAN and STATE parsers | done | logs/p1-s1.1.md |
-| 1 | 1.2 | Implement WorkNode class / API | todo | - |
+| 1 | 1.2 | Implement WorkNode class / API | done | logs/p1-s1.2.md |
 | 1 | 1.3 | Implement crash-safe mutation helpers | todo | - |
 | 2 | 2.1 | Implement CLI scaffolding (`worktree` command) | todo | - |
 | 2 | 2.2 | Implement `worktree run` | todo | - |

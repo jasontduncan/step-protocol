@@ -68,14 +68,78 @@ export class WorkState {
 
 export class WorkNodeSchema {
   constructor(
-    public readonly layout: WorkNodeLayout,
-    public readonly plan: WorkPlan,
-    public readonly state: WorkState,
-    public readonly logs: LogMetadata[] = []
+    public layout: WorkNodeLayout,
+    public plan: WorkPlan,
+    public state: WorkState,
+    public logs: LogMetadata[] = []
   ) {}
 
   getStepKey(entry: StepIdentifier): string {
     return `${entry.phase}:${entry.step}:${entry.label}`;
+  }
+}
+
+export class WorkNode extends WorkNodeSchema {
+  static async load(root: string): Promise<WorkNode> {
+    const layout = await validateWorkNodeLayout(root);
+    const plan = await parsePlan(layout.planPath);
+    const state = await parseState(layout.statePath);
+    ensurePlanStateConsistency(plan, state);
+    return new WorkNode(layout, plan, state);
+  }
+
+  static loadSync(root: string): WorkNode {
+    const layout = validateWorkNodeLayoutSync(root);
+    const plan = parsePlanSync(layout.planPath);
+    const state = parseStateSync(layout.statePath);
+    ensurePlanStateConsistency(plan, state);
+    return new WorkNode(layout, plan, state);
+  }
+
+  static async discoverRelations(root: string): Promise<WorkNodeRelation[]> {
+    const nodes = await discoverWorkNodes(root);
+    return buildWorkNodeRelations(nodes);
+  }
+
+  listStepsByStatus(status: StepStatus): StateRow[] {
+    return this.state.listByStatus(status);
+  }
+
+  getNextActionableStep(): StateRow | undefined {
+    return findNextActionableStep(this.state);
+  }
+
+  getStateEntry(phase: number, step: string): StateRow | undefined {
+    return this.state.find(phase, step);
+  }
+
+  async refreshState(): Promise<WorkState> {
+    const state = await parseState(this.layout.statePath);
+    ensurePlanStateConsistency(this.plan, state);
+    this.state = state;
+    return state;
+  }
+
+  async persistState(): Promise<void> {
+    await writeState(this.layout.statePath, this.state);
+  }
+
+  locateLog(identifier: StepIdentifier): LogPaths {
+    return canonicalLogPaths(this.layout, identifier);
+  }
+
+  async createLogForStep(planStep: PlanStep, status: StepStatus = "in-progress"): Promise<LogPaths> {
+    const relative = await createStepLog(this.layout, planStep, status);
+    updateStateEntry(this.state, planStep.phase, planStep.step, { progressLog: relative });
+    return canonicalLogPaths(this.layout, planStep);
+  }
+
+  async updateLogForStep(
+    step: StepIdentifier,
+    updates: { status?: StepStatus; completed?: string }
+  ): Promise<void> {
+    const { absolute } = canonicalLogPaths(this.layout, step);
+    await updateLogHeader(absolute, updates);
   }
 }
 
@@ -539,18 +603,10 @@ export function buildWorkNodeRelations(nodes: WorkNodeLayout[]): WorkNodeRelatio
   return relations;
 }
 
-export async function loadWorkNode(root: string): Promise<WorkNodeSchema> {
-  const layout = await validateWorkNodeLayout(root);
-  const plan = await parsePlan(layout.planPath);
-  const state = await parseState(layout.statePath);
-  ensurePlanStateConsistency(plan, state);
-  return new WorkNodeSchema(layout, plan, state);
+export async function loadWorkNode(root: string): Promise<WorkNode> {
+  return WorkNode.load(root);
 }
 
-export function loadWorkNodeSync(root: string): WorkNodeSchema {
-  const layout = validateWorkNodeLayoutSync(root);
-  const plan = parsePlanSync(layout.planPath);
-  const state = parseStateSync(layout.statePath);
-  ensurePlanStateConsistency(plan, state);
-  return new WorkNodeSchema(layout, plan, state);
+export function loadWorkNodeSync(root: string): WorkNode {
+  return WorkNode.loadSync(root);
 }
