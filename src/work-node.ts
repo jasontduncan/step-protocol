@@ -295,6 +295,32 @@ export function canonicalLogPaths(layout: WorkNodeLayout, identifier: StepIdenti
   return { absolute, relative };
 }
 
+async function atomicWriteFile(filePath: string, contents: string): Promise<void> {
+  const directory = path.dirname(filePath);
+  await fs.mkdir(directory, { recursive: true });
+  const tempName = `.tmp-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const tempPath = path.join(directory, tempName);
+  try {
+    await fs.writeFile(tempPath, contents, "utf8");
+    await fs.rename(tempPath, filePath);
+  } catch (error) {
+    await fs.rm(tempPath, { force: true }).catch(() => {});
+    throw error;
+  }
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.stat(filePath);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+    throw error;
+  }
+}
+
 export async function createStepLog(
   layout: WorkNodeLayout,
   planStep: PlanStep,
@@ -302,6 +328,9 @@ export async function createStepLog(
 ): Promise<string> {
   const { absolute, relative } = canonicalLogPaths(layout, planStep);
   await fs.mkdir(layout.logsDir, { recursive: true });
+  if (await fileExists(absolute)) {
+    return relative;
+  }
   const planDetails = planStep.details ?? [];
   const scope = planDetails.length ? planDetails.join(" · ") : planStep.label;
   const planChecklist =
@@ -324,13 +353,7 @@ export async function createStepLog(
     "## Outcomes",
     ""
   ].join("\n");
-  try {
-    await fs.writeFile(absolute, template, { encoding: "utf8", flag: "wx" });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-      throw error;
-    }
-  }
+  await atomicWriteFile(absolute, template);
   return relative;
 }
 
@@ -365,7 +388,7 @@ export async function updateLogHeader(
       }
     }
   }
-  await fs.writeFile(logPath, contents, "utf8");
+  await atomicWriteFile(logPath, contents);
 }
 
 export function updateStateEntry(
@@ -390,7 +413,7 @@ export async function writeState(statePath: string, state: WorkState): Promise<v
       return `| ${entry.phase} | ${entry.step} | ${entry.label} | ${entry.status} | ${progressLog} |`;
     })
   ];
-  await fs.writeFile(statePath, `${lines.join("\n")}\n`, "utf8");
+  await atomicWriteFile(statePath, `${lines.join("\n")}\n`);
 }
 
 export function ensurePlanStateConsistency(plan: WorkPlan, state: WorkState): void {
