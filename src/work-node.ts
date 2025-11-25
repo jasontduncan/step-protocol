@@ -1,4 +1,4 @@
-import { promises as fs, statSync, Dirent } from "node:fs";
+import { promises as fs, statSync, readFileSync, Dirent } from "node:fs";
 import path from "node:path";
 
 export type StepStatus = "todo" | "in-progress" | "blocked" | "done" | "superseded";
@@ -10,7 +10,7 @@ export interface StepIdentifier {
 }
 
 export interface PlanStep extends StepIdentifier {
-  description?: string;
+  details?: string[];
 }
 
 export interface StateRow extends StepIdentifier {
@@ -77,6 +77,252 @@ export class WorkNodeSchema {
   getStepKey(entry: StepIdentifier): string {
     return `${entry.phase}:${entry.step}:${entry.label}`;
   }
+}
+
+const STEP_DECLARATION_REGEX = /^\s*-\s*Step\s+(\d+)\.([0-9]+(?:\.[0-9]+)*)\s*:\s*(.+)$/i;
+const DETAIL_LINE_REGEX = /^\s*-\s+(?!Step)(.+)$/i;
+const STATE_ROW_REGEX = /^\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|$/;
+const STATUS_LINE_REGEX = /^status:\s*.+$/m;
+const COMPLETED_LINE_REGEX = /^completed:\s*.+$/m;
+const VALID_STATUSES: Set<StepStatus> = new Set(["todo", "in-progress", "blocked", "done", "superseded"]);
+
+function parsePlanLines(lines: string[]): PlanStep[] {
+  const steps: PlanStep[] = [];
+  let current: PlanStep | null = null;
+  let detailBuffer: string[] = [];
+
+  for (const raw of lines) {
+    const line = raw.replace(/\r$/, "");
+    const declaration = STEP_DECLARATION_REGEX.exec(line);
+    if (declaration) {
+      if (current) {
+        if (detailBuffer.length) {
+          current.details = [...detailBuffer];
+        }
+        steps.push(current);
+        detailBuffer = [];
+      }
+      current = {
+        phase: Number(declaration[1]),
+        step: declaration[2],
+        label: declaration[3].trim()
+      };
+      continue;
+    }
+
+    if (current) {
+      const detailMatch = DETAIL_LINE_REGEX.exec(line);
+      if (detailMatch) {
+        detailBuffer.push(detailMatch[1].trim());
+      }
+    }
+  }
+
+  if (current) {
+    if (detailBuffer.length) {
+      current.details = [...detailBuffer];
+    }
+    steps.push(current);
+  }
+
+  return steps;
+}
+
+function parseStateRows(lines: string[]): StateRow[] {
+  const rows: StateRow[] = [];
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.startsWith("| Phase") || trimmed.startsWith("| -----")) {
+      continue;
+    }
+    const match = STATE_ROW_REGEX.exec(raw);
+    if (!match) {
+      continue;
+    }
+    const phase = Number(match[1].trim());
+    const step = match[2].trim();
+    const label = match[3].trim();
+    const status = match[4].trim() as StepStatus;
+    if (!VALID_STATUSES.has(status)) {
+      throw new Error(`unexpected status '${status}' in STATE.md`);
+    }
+    const progressLogCell = match[5].trim();
+    rows.push({
+      phase,
+      step,
+      label,
+      status,
+      progressLog: progressLogCell === "-" || progressLogCell === "" ? null : progressLogCell
+    });
+  }
+  return rows;
+}
+
+export async function parsePlan(planPath: string): Promise<WorkPlan> {
+  const content = await fs.readFile(planPath, "utf8");
+  return new WorkPlan(parsePlanLines(content.split(/\r?\n/)));
+}
+
+export function parsePlanSync(planPath: string): WorkPlan {
+  const content = readFileSync(planPath, "utf8");
+  return new WorkPlan(parsePlanLines(content.split(/\r?\n/)));
+}
+
+export async function parseState(statePath: string): Promise<WorkState> {
+  const content = await fs.readFile(statePath, "utf8");
+  return new WorkState(parseStateRows(content.split(/\r?\n/)));
+}
+
+export function parseStateSync(statePath: string): WorkState {
+  const content = readFileSync(statePath, "utf8");
+  return new WorkState(parseStateRows(content.split(/\r?\n/)));
+}
+
+function parseStepSequence(step: string): number[] {
+  return step.split(".").map((segment) => {
+    const parsed = Number(segment);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  });
+}
+
+export function compareStepIdentifiers(a: StepIdentifier, b: StepIdentifier): number {
+  if (a.phase !== b.phase) {
+    return a.phase - b.phase;
+  }
+  const aParts = parseStepSequence(a.step);
+  const bParts = parseStepSequence(b.step);
+  const maxLength = Math.max(aParts.length, bParts.length);
+  for (let i = 0; i < maxLength; i += 1) {
+    const aValue = aParts[i] ?? 0;
+    const bValue = bParts[i] ?? 0;
+    if (aValue !== bValue) {
+      return aValue - bValue;
+    }
+  }
+  return 0;
+}
+
+export function findNextActionableStep(state: WorkState): StateRow | undefined {
+  const inProgress = state.entries.filter((entry) => entry.status === "in-progress");
+  if (inProgress.length) {
+    return inProgress[0];
+  }
+  const todo = state.entries.filter((entry) => entry.status === "todo");
+  const sorted = [...todo].sort(compareStepIdentifiers);
+  return sorted[0];
+}
+
+export interface LogPaths {
+  absolute: string;
+  relative: string;
+}
+
+export function canonicalLogPaths(layout: WorkNodeLayout, identifier: StepIdentifier): LogPaths {
+  const name = `p${identifier.phase}-s${identifier.step}.md`;
+  const absolute = path.join(layout.logsDir, name);
+  const relative = path
+    .relative(layout.root, absolute)
+    .split(path.sep)
+    .join("/");
+  return { absolute, relative };
+}
+
+export async function createStepLog(
+  layout: WorkNodeLayout,
+  planStep: PlanStep,
+  status: StepStatus = "in-progress"
+): Promise<string> {
+  const { absolute, relative } = canonicalLogPaths(layout, planStep);
+  await fs.mkdir(layout.logsDir, { recursive: true });
+  const planDetails = planStep.details ?? [];
+  const scope = planDetails.length ? planDetails.join(" · ") : planStep.label;
+  const planChecklist =
+    planDetails.length > 0
+      ? planDetails.map((detail) => `- [ ] ${detail}`).join("\n")
+      : "- [ ] TODO";
+  const template = [
+    `# Phase ${planStep.phase} – Step ${planStep.step}: ${planStep.label}`,
+    `status: ${status}`,
+    `started: ${new Date().toISOString()}`,
+    "",
+    "## Scope",
+    scope,
+    "",
+    "## Plan",
+    planChecklist,
+    "",
+    "## Notes",
+    "",
+    "## Outcomes",
+    ""
+  ].join("\n");
+  try {
+    await fs.writeFile(absolute, template, { encoding: "utf8", flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+      throw error;
+    }
+  }
+  return relative;
+}
+
+export async function updateLogHeader(
+  logPath: string,
+  updates: { status?: StepStatus; completed?: string }
+): Promise<void> {
+  if (!updates.status && !updates.completed) {
+    return;
+  }
+  let contents = await fs.readFile(logPath, "utf8");
+  if (updates.status) {
+    if (STATUS_LINE_REGEX.test(contents)) {
+      contents = contents.replace(STATUS_LINE_REGEX, `status: ${updates.status}`);
+    } else {
+      contents = `status: ${updates.status}\n${contents}`;
+    }
+  }
+  if (updates.completed) {
+    if (COMPLETED_LINE_REGEX.test(contents)) {
+      contents = contents.replace(COMPLETED_LINE_REGEX, `completed: ${updates.completed}`);
+    } else {
+      const startedMatch = contents.match(/^started:.*$/m);
+      if (startedMatch && typeof startedMatch.index === "number") {
+        const insertPosition = startedMatch.index + startedMatch[0].length;
+        contents =
+          contents.slice(0, insertPosition) +
+          `\ncompleted: ${updates.completed}` +
+          contents.slice(insertPosition);
+      } else {
+        contents = `completed: ${updates.completed}\n${contents}`;
+      }
+    }
+  }
+  await fs.writeFile(logPath, contents, "utf8");
+}
+
+export function updateStateEntry(
+  state: WorkState,
+  phase: number,
+  step: string,
+  changes: Partial<Pick<StateRow, "status" | "progressLog" | "label">>
+): void {
+  const entry = state.find(phase, step);
+  if (!entry) {
+    throw new Error(`state entry ${phase}.${step} not found`);
+  }
+  Object.assign(entry, changes);
+}
+
+export async function writeState(statePath: string, state: WorkState): Promise<void> {
+  const lines = [
+    "| Phase | Step | Label | Status | Progress Log |",
+    "| ----- | ---- | ----- | ------ | ------------ |",
+    ...state.entries.map((entry) => {
+      const progressLog = entry.progressLog ?? "-";
+      return `| ${entry.phase} | ${entry.step} | ${entry.label} | ${entry.status} | ${progressLog} |`;
+    })
+  ];
+  await fs.writeFile(statePath, `${lines.join("\n")}\n`, "utf8");
 }
 
 const requiredEntries: Array<{
@@ -253,10 +499,14 @@ export function buildWorkNodeRelations(nodes: WorkNodeLayout[]): WorkNodeRelatio
 
 export async function loadWorkNode(root: string): Promise<WorkNodeSchema> {
   const layout = await validateWorkNodeLayout(root);
-  return new WorkNodeSchema(layout, new WorkPlan(), new WorkState());
+  const plan = await parsePlan(layout.planPath);
+  const state = await parseState(layout.statePath);
+  return new WorkNodeSchema(layout, plan, state);
 }
 
 export function loadWorkNodeSync(root: string): WorkNodeSchema {
   const layout = validateWorkNodeLayoutSync(root);
-  return new WorkNodeSchema(layout, new WorkPlan(), new WorkState());
+  const plan = parsePlanSync(layout.planPath);
+  const state = parseStateSync(layout.statePath);
+  return new WorkNodeSchema(layout, plan, state);
 }
