@@ -1,4 +1,4 @@
-import { promises as fs, statSync } from "node:fs";
+import { promises as fs, statSync, Dirent } from "node:fs";
 import path from "node:path";
 
 export type StepStatus = "todo" | "in-progress" | "blocked" | "done" | "superseded";
@@ -159,4 +159,104 @@ export function validateWorkNodeLayoutSync(root: string): WorkNodeLayout {
   }
 
   return layout;
+}
+
+const IGNORED_DIRECTORY_NAMES = new Set([".git", ".github", "node_modules", "dist", "coverage", "logs"]);
+
+async function safeReadDir(dir: string): Promise<Dirent[]> {
+  try {
+    return await fs.readdir(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+async function scanForWorkNodes(
+  dir: string,
+  discovered: Map<string, WorkNodeLayout>,
+  visited: Set<string>
+): Promise<void> {
+  const normalized = path.resolve(dir);
+  if (visited.has(normalized)) {
+    return;
+  }
+  visited.add(normalized);
+
+  try {
+    const layout = await validateWorkNodeLayout(normalized);
+    if (!discovered.has(normalized)) {
+      discovered.set(normalized, layout);
+    }
+  } catch {
+    // ignore directories that are not WorkNodes
+  }
+
+  const entries = await safeReadDir(normalized);
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    if (IGNORED_DIRECTORY_NAMES.has(entry.name)) {
+      continue;
+    }
+    await scanForWorkNodes(path.join(normalized, entry.name), discovered, visited);
+  }
+}
+
+export async function discoverWorkNodes(root: string): Promise<WorkNodeLayout[]> {
+  const normalizedRoot = path.resolve(root);
+  const discovered = new Map<string, WorkNodeLayout>();
+  await scanForWorkNodes(normalizedRoot, discovered, new Set());
+  return Array.from(discovered.values()).sort((a, b) => a.root.localeCompare(b.root));
+}
+
+export interface WorkNodeRelation {
+  layout: WorkNodeLayout;
+  parent: WorkNodeLayout | null;
+  children: WorkNodeLayout[];
+}
+
+function isAncestor(ancestor: string, descendant: string): boolean {
+  const relative = path.relative(ancestor, descendant);
+  if (!relative || relative === "") {
+    return false;
+  }
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    return false;
+  }
+  return true;
+}
+
+export function buildWorkNodeRelations(nodes: WorkNodeLayout[]): WorkNodeRelation[] {
+  const sorted = [...nodes].sort((a, b) => a.root.localeCompare(b.root));
+  const relations: WorkNodeRelation[] = sorted.map((layout) => ({
+    layout,
+    parent: null,
+    children: []
+  }));
+
+  for (const relation of relations) {
+    const candidates = relations.filter(
+      (candidate) => candidate !== relation && isAncestor(candidate.layout.root, relation.layout.root)
+    );
+    if (!candidates.length) {
+      continue;
+    }
+    candidates.sort((a, b) => b.layout.root.length - a.layout.root.length);
+    const parent = candidates[0];
+    relation.parent = parent.layout;
+    parent.children.push(relation.layout);
+  }
+
+  return relations;
+}
+
+export async function loadWorkNode(root: string): Promise<WorkNodeSchema> {
+  const layout = await validateWorkNodeLayout(root);
+  return new WorkNodeSchema(layout, new WorkPlan(), new WorkState());
+}
+
+export function loadWorkNodeSync(root: string): WorkNodeSchema {
+  const layout = validateWorkNodeLayoutSync(root);
+  return new WorkNodeSchema(layout, new WorkPlan(), new WorkState());
 }
