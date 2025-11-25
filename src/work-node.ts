@@ -79,6 +79,40 @@ export class WorkNodeSchema {
   }
 }
 
+const DEFAULT_INIT_PLAN_STEPS: PlanStep[] = [
+  {
+    phase: 0,
+    step: "0.1",
+    label: "Document the WorkNode scope",
+    details: [
+      "Summarize what this node represents and why it exists.",
+      "List how to use `worktree run`, `worktree audit`, and `worktree init` here.",
+      "Reference docs/work/WORK_PROTOCOL.md for layout expectations."
+    ]
+  }
+];
+
+function buildPlanMarkdown(steps: PlanStep[]): string {
+  const lines = [
+    "# WorkNode PLAN",
+    "",
+    "This PLAN describes the work to be executed inside this node and tracks its steps per docs/work/WORK_PROTOCOL.md.",
+    ""
+  ];
+
+  for (const step of steps) {
+    lines.push(`- Step ${step.phase}.${step.step}: ${step.label}`);
+    if (step.details && step.details.length) {
+      for (const detail of step.details) {
+        lines.push(`  - ${detail}`);
+      }
+    }
+    lines.push("");
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
 export class WorkNode extends WorkNodeSchema {
   static async load(root: string): Promise<WorkNode> {
     const layout = await validateWorkNodeLayout(root);
@@ -88,6 +122,37 @@ export class WorkNode extends WorkNodeSchema {
     return new WorkNode(layout, plan, state);
   }
 
+  static async initialize(root: string, planSteps: PlanStep[] = DEFAULT_INIT_PLAN_STEPS): Promise<WorkNode> {
+    const normalizedRoot = path.resolve(root);
+    const layout: WorkNodeLayout = {
+      root: normalizedRoot,
+      planPath: path.join(normalizedRoot, "PLAN.md"),
+      statePath: path.join(normalizedRoot, "STATE.md"),
+      logsDir: path.join(normalizedRoot, "logs")
+    };
+
+    if (await fileExists(layout.planPath) || (await fileExists(layout.statePath))) {
+      throw new Error(`${normalizedRoot} already contains a WorkNode.`);
+    }
+
+    await fs.mkdir(normalizedRoot, { recursive: true });
+    await fs.mkdir(layout.logsDir, { recursive: true });
+    const planText = buildPlanMarkdown(planSteps);
+    await atomicWriteFile(layout.planPath, planText);
+    const state = new WorkState(
+      planSteps.map((step) => ({
+        phase: step.phase,
+        step: step.step,
+        label: step.label,
+        status: "todo",
+        progressLog: null
+      }))
+    );
+    await writeState(layout.statePath, state);
+
+    return WorkNode.load(normalizedRoot);
+  }
+
   static loadSync(root: string): WorkNode {
     const layout = validateWorkNodeLayoutSync(root);
     const plan = parsePlanSync(layout.planPath);
@@ -95,7 +160,6 @@ export class WorkNode extends WorkNodeSchema {
     ensurePlanStateConsistency(plan, state);
     return new WorkNode(layout, plan, state);
   }
-
   static async discoverRelations(root: string): Promise<WorkNodeRelation[]> {
     const nodes = await discoverWorkNodes(root);
     return buildWorkNodeRelations(nodes);
@@ -320,6 +384,7 @@ async function fileExists(filePath: string): Promise<boolean> {
     throw error;
   }
 }
+
 
 export async function createStepLog(
   layout: WorkNodeLayout,

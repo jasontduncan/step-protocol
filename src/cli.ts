@@ -36,6 +36,22 @@ function parseCommand(arg?: string): Command | undefined {
   return undefined;
 }
 
+function extractTargetOption(args: string[], defaultTarget: string): string {
+  let target = defaultTarget;
+  for (let i = 0; i < args.length; i += 1) {
+    const arg = args[i];
+    if (arg === "--target" || arg === "--node") {
+      const value = args[i + 1];
+      if (!value) {
+        throw new Error(`Missing value after ${arg}`);
+      }
+      target = path.resolve(value);
+      i += 1;
+    }
+  }
+  return target;
+}
+
 const DEFAULT_NODE_ROOT = path.resolve("docs/work");
 
 type RunOptions = {
@@ -45,7 +61,7 @@ type RunOptions = {
 
 function parseRunOptions(args: string[]): RunOptions {
   const options: RunOptions = {
-    target: DEFAULT_NODE_ROOT,
+    target: extractTargetOption(args, DEFAULT_NODE_ROOT),
     complete: false
   };
 
@@ -56,21 +72,25 @@ function parseRunOptions(args: string[]): RunOptions {
         options.complete = true;
         break;
       case "--target":
-      case "--node": {
-        const value = args[i + 1];
-        if (!value) {
-          throw new Error(`Missing value after ${arg}`);
-        }
-        options.target = path.resolve(value);
+      case "--node":
         i += 1;
         break;
-      }
       default:
         break;
     }
   }
 
   return options;
+}
+
+type InitOptions = {
+  target: string;
+};
+
+function parseInitOptions(args: string[]): InitOptions {
+  return {
+    target: extractTargetOption(args, process.cwd())
+  };
 }
 
 async function handleRun(args: string[]): Promise<void> {
@@ -123,13 +143,34 @@ async function handleRun(args: string[]): Promise<void> {
   console.log("Use \`worktree run --complete\` when you finish this step to mark it done.");
 }
 
+async function handleInit(args: string[]): Promise<void> {
+  let options: InitOptions;
+  try {
+    options = parseInitOptions(args);
+  } catch (error) {
+    console.error(`Invalid arguments for init: ${(error as Error).message}`);
+    return;
+  }
+
+  try {
+    await WorkNode.initialize(options.target);
+    console.log(`Initialized a new WorkNode at ${options.target}`);
+    console.log("Run `worktree run` inside that directory to begin the first step.");
+  } catch (error) {
+    console.error(`Failed to initialize WorkNode: ${(error as Error).message}`);
+  }
+}
+
 async function handleCommand(command: Command, args: string[]): Promise<void> {
   switch (command) {
+    case "init": {
+      await handleInit(args);
+      break;
+    }
     case "run": {
       await handleRun(args);
       break;
     }
-    case "init":
     case "audit":
     case "status": {
       console.log(`The '${command}' command is not implemented yet.`);
