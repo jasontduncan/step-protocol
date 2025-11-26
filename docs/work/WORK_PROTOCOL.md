@@ -145,6 +145,30 @@ This is the only time STATE is auto-generated.
 
 Workers must never regenerate STATE once it exists.
 
+During this bootstrap flow, the `worktree init` command MUST NOT invoke the general
+PLAN–STATE validator from §4. The bootstrap steps listed above are the sole source
+of truth for the initial consistency of PLAN and STATE; any attempt to validate
+before STATE exists would reject this normal initialization path.
+
+Instead, `worktree init` should detect the PLAN-only situation, derive STATE rows
+from the parsed PLAN, write the new STATE.md atomically, and exit successfully
+without running the broader validator.
+
+This ensures that the first-time initialization of a WorkNode aligns with the
+protocol, and that errors are still reported when STATE.md already exists or when
+PLAN.md is malformed.
+
+### Implementation Notes
+
+* Check for `PLAN.md` before `STATE.md` during initialization; if `STATE.md` is
+  missing, skip any code paths that would run the full validator and instead use
+  this bootstrap routine.
+* Build the initial `STATE.md` rows directly from the parsed PLAN steps, mark
+  them as `todo`, and set `Progress Log = -` before writing the file.
+* After writing the bootstrap STATE, fail fast if the layout violates other
+  invariants (e.g., residual STATE without PLAN) but otherwise exit immediately,
+  since there is no history to validate yet.
+
 ---
 
 # 4. PLAN–STATE Consistency (Strong Invariant)
@@ -290,4 +314,3 @@ This protocol guarantees:
 * clear routing
 * recursive WorkNodes with stable identities
 * predictable behavior from humans and large language models
-

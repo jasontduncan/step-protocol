@@ -126,3 +126,35 @@ Ensure WorkTree itself conforms to the rules it enforces.
   - Fix any inconsistencies in PLAN, STATE, or logs.
   - Document any deliberate exceptions or extensions to the protocol.
 
+---
+
+## Phase 6 – Maintenance and Hardening
+
+- Step 6.1: Fix bootstrap behavior for `worktree init`
+  - Ensure `worktree init` follows WORK_PROTOCOL §3 (Node Bootstrap):
+    - When PLAN.md exists and STATE.md does not, do not run the general PLAN–STATE validator.
+    - Instead, parse PLAN.md and generate STATE.md with one row per step, with Status = `todo` and Progress Log = `-`.
+    - Exit successfully after creating a consistent initial STATE.
+  - Ensure that initialization errors are only raised for truly invalid situations (e.g., conflicting existing STATE, malformed PLAN), not for the normal bootstrap flow.
+
+- Step 6.2: Clarify Node Bootstrap semantics in WORK_PROTOCOL
+  - Update docs/work/WORK_PROTOCOL.md §3 (Node Bootstrap) to explicitly state that:
+    - During bootstrap, `worktree init` MUST NOT invoke the general PLAN–STATE validator.
+    - The bootstrap process itself is the source of truth for the initial PLAN–STATE consistency.
+  - Optionally add a brief “Implementation Notes” subsection under §3 to describe the intended control flow for `worktree init` in concrete terms, without changing the existing rules.
+  - Ensure the new text is clearly a clarification/tightening of the existing behavior, not a relaxation of any invariant.
+
+- Step 6.3: Fix NODE_ROOT resolution in `worktree run`
+  - Ensure `run` uses the same agnostic NODE_ROOT resolution as `init`:
+    - If a positional path argument is given, treat that exact directory as NODE_ROOT.
+    - If no argument is given, use `process.cwd()` as NODE_ROOT.
+  - Remove any logic that assumes NODE_ROOT contains or must contain `docs/work/`.
+  - Validate NODE_ROOT by checking for PLAN.md, STATE.md, and logs/ directly in that directory.
+  - Fail with a clear error if the validation fails.
+  - No layout assumptions should be encoded in the CLI; `docs/work/` is only special when explicitly passed.
+
+- Step 6.4: Fix starter PLAN template identifier
+  - Update the `worktree init` starter PLAN template so that new WorkNodes use normalized step identifiers.
+  - Replace the incorrect “Step 0.0.1: Document the WorkNode scope” template with the correct “Step 0.1: Document the WorkNode scope”.
+  - Ensure STATE bootstrap generation remains consistent with this identifier format.
+  - This step does not modify existing nodes; it only corrects the template for future `worktree init` executions.

@@ -14,3 +14,7 @@
 | 4 | 4.1 | Create example leaf WorkNode | done | logs/p4-s4.1.md |
 | 4 | 4.2 | Write documentation | done | logs/p4-s4.2.md |
 | 5 | 5.1 | Validate the meta-node against the protocol | done | logs/p5-s5.1.md |
+| 6 | 6.1 | Fix bootstrap behavior for `worktree init` | done | logs/p6-s6.1.md |
+| 6 | 6.2 | Clarify Node Bootstrap semantics in WORK_PROTOCOL | done | logs/p6-s6.2.md |
+| 6 | 6.3 | Fix NODE_ROOT resolution in `worktree run` | done | logs/p6-s6.3.md |
+| 6 | 6.4 | Fix starter PLAN template identifier | done | logs/p6-s6.4.md |

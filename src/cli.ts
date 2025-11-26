@@ -1,5 +1,11 @@
 import path from "node:path";
-import { WorkNode, updateStateEntry, auditWorkNodes } from "./work-node.js";
+import {
+  WorkNode,
+  updateStateEntry,
+  auditWorkNodes,
+  validateWorkNodeLayout
+} from "./work-node.js";
+import type { WorkNodeLayout } from "./work-node.js";
 import pkg from "../package.json" with { type: "json" };
 
 const AVAILABLE_COMMANDS = ["init", "run", "audit", "status"] as const;
@@ -52,7 +58,7 @@ function extractTargetOption(args: string[], defaultTarget: string): string {
   return target;
 }
 
-const DEFAULT_NODE_ROOT = path.resolve("docs/work");
+const META_NODE_ROOT = path.resolve("docs/work");
 
 type RunOptions = {
   target: string;
@@ -61,7 +67,7 @@ type RunOptions = {
 
 function parseRunOptions(args: string[]): RunOptions {
   const options: RunOptions = {
-    target: extractTargetOption(args, DEFAULT_NODE_ROOT),
+    target: process.cwd(),
     complete: false
   };
 
@@ -72,11 +78,22 @@ function parseRunOptions(args: string[]): RunOptions {
         options.complete = true;
         break;
       case "--target":
-      case "--node":
+      case "--node": {
+        const value = args[i + 1];
+        if (!value || value.startsWith("-")) {
+          throw new Error(`Missing value after ${arg}`);
+        }
+        options.target = path.resolve(value);
         i += 1;
         break;
-      default:
+      }
+      default: {
+        if (arg.startsWith("-")) {
+          break;
+        }
+        options.target = path.resolve(arg);
         break;
+      }
     }
   }
 
@@ -102,7 +119,21 @@ async function handleRun(args: string[]): Promise<void> {
     return;
   }
 
-  const node = await WorkNode.load(options.target);
+  let layout: WorkNodeLayout;
+  try {
+    layout = await validateWorkNodeLayout(options.target);
+  } catch (error) {
+    console.error(`Invalid WorkNode root '${options.target}': ${(error as Error).message}`);
+    return;
+  }
+
+  let node: WorkNode;
+  try {
+    node = await WorkNode.loadFromLayout(layout);
+  } catch (error) {
+    console.error(`Failed to load WorkNode at '${options.target}': ${(error as Error).message}`);
+    return;
+  }
   const actionable = node.getNextActionableStep();
   if (!actionable) {
     console.log(`No actionable steps remain under ${options.target}.`);
@@ -164,7 +195,7 @@ async function handleInit(args: string[]): Promise<void> {
 async function handleAudit(args: string[]): Promise<void> {
   let target: string;
   try {
-    target = extractTargetOption(args, DEFAULT_NODE_ROOT);
+    target = extractTargetOption(args, META_NODE_ROOT);
   } catch (error) {
     console.error(`Invalid arguments for audit: ${(error as Error).message}`);
     return;

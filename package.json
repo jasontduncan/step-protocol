@@ -1,6 +1,7 @@
 {
-  "name": "worktree",
+  "name": "step-cli",
   "version": "0.1.0",
+  "description": "STEP — Structured Task Execution Protocol with a WorkDAG engine and CLI runner.",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
