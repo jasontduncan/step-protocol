@@ -1,6 +1,6 @@
 # STEP — Structured Task Execution Protocol
 
-STEP is an agent-readable protocol for work shared by humans, LLM agents, and tools.
+STEP is an agent-readable protocol for durable, resumable work across long-running agents, humans, and tools. It preserves intent, execution state, and evidence so work can survive context loss, support handoff, and continue across execution sessions.
 
 A STEP `WorkNode` is executable intent with persistent state and evidence:
 
@@ -9,6 +9,8 @@ A STEP `WorkNode` is executable intent with persistent state and evidence:
 - `logs/` — execution evidence
 
 This repository publishes a software idea, not a software package.
+
+[`applications/`](applications/) contains non-normative mappings for long-running agents, deep research, and human-agent handoff.
 
 [`PROTOCOL.md`](PROTOCOL.md) defines STEP and is authoritative. [`examples/hello-worknode/`](examples/hello-worknode/) is a minimal, non-normative example. [`provenance/worktree-bootstrap/`](provenance/worktree-bootstrap/) preserves the historical WorkNode that directed the early WorkTree implementation.
 
