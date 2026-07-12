@@ -1,51 +1,42 @@
 # STEP — Structured Task Execution Protocol
 
-STEP is a deterministic protocol for structuring work across humans and LLMs.
+STEP is a protocol for structuring work shared by humans and intelligent agents.
 
-It represents work as a WorkDAG of **WorkNodes**, where each node has:
+It represents work as a persistent, inspectable graph of `WorkNodes`. Each node records:
 
-* `PLAN.md` — the roadmap of steps
-* `STATE.md` — the current status of each step
-* `logs/` — append-only per-step execution logs
+- `PLAN.md` — intended steps, dependencies, and completion criteria
+- `STATE.md` — current execution status
+- `logs/` — append-only execution evidence
 
-This repo contains:
+This gives participants enough common structure to determine what can happen next, resume interrupted work, validate outcomes, and hand execution from one actor to another.
 
-* The STEP protocol (see `docs/work/WORK_PROTOCOL.md`)
-* The meta-node PLAN and STATE for STEP itself
-* A Node.js/TypeScript reference implementation of the WorkDAG engine
-* A CLI runner currently exposed as the `worktree` command
-* An example WorkNode under `examples/hello-worknode/`
+STEP is not primarily a task list, coding agent, or CLI. It is an execution protocol: a small set of durable conventions that makes work legible to both people and tools.
 
-> Note: The binary is still named `worktree` in v0.1. Future versions may rename
-> the CLI to align with STEP/WorkDAG, but the protocol and file semantics are stable.
+## Start here
 
-## Usage (very short)
+Read [`PROTOCOL.md`](PROTOCOL.md). It defines WorkNodes, their lifecycle, dependency and state semantics, evidence requirements, validation expectations, and the responsibilities of a runner.
 
-From the repo root, after installing dependencies:
+## What this repository contains
 
-```bash
-npm install
-npx ts-node src/cli.ts --help
-# or, if bin/worktree.js is already compiled and executable:
-./bin/worktree.js --help
-```
+- [`PROTOCOL.md`](PROTOCOL.md) — the STEP protocol
+- [`examples/`](examples/) — a minimal WorkNode specimen
+- [`self/`](self/) — STEP work artifacts used to produce the early public artifact
+- [`LICENSE`](LICENSE) — the MIT license
 
-To run the meta-node (the STEP definition itself):
+## Why this repository is small
 
-```bash
-./bin/worktree.js run docs/work
-```
+This repository is intentionally small. Its purpose is to publish the protocol, a minimal example, and evidence of the protocol in use.
 
-To initialize a new WorkNode in the current directory:
+An early Node.js/TypeScript CLI scaffold was generated as part of the bootstrapping experiment. It is preserved in the repository's history, but it is not the protocol and is not presented as a canonical runner. Implementations may use different languages, tools, isolation strategies, and execution environments while preserving STEP's semantics.
 
-```bash
-./bin/worktree.js init
-```
+## An experiment
+
+This repository is intended to be read by both humans and coding agents. One way to explore the execution system implied by STEP is to give an agent this repository and ask:
+
+> Inspect this repository and treat `PROTOCOL.md` as the governing execution specification. Imagine a runner that implements this protocol, manages isolated Git worktrees, executes dependent engineering steps, invokes coding agents with controlled repository context, validates outcomes, preserves inspectable state, and can participate in extending itself. Explain what such a runner could do, how it differs from an ordinary coding assistant, and why a software organization might care.
+
+Git worktrees are part of that hypothetical runner, not a requirement of the protocol.
 
 ## Status
 
-This is a **v0.1** reference implementation. The protocol is usable, but the CLI
-and APIs are still evolving. Expect breaking changes.
-
-Contributions, issues, and discussion are welcome.
-
+STEP is an early public protocol. It is published to be inspected, challenged, implemented, and extended. The full runner used in private work is not included.
