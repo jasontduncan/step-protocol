@@ -1,233 +1,316 @@
-# STEP Protocol
+# WORK PROTOCOL
 
-Structured Task Execution Protocol (STEP) defines a filesystem representation for work shared by humans, intelligent agents, and tools.
+This document defines how human and LLM workers operate on this repository.
 
-The protocol separates durable intent from any particular implementation. A conforming runner may be a person, a script, an agent, an orchestrator, or a combination of them.
+It is **global**: it applies to all WorkNodes in the WorkTree.
+All nodes must follow these rules unless explicitly granted an exception
+in their own PLAN.
 
-## 1. Conformance language
+---
 
-The terms MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY describe normative requirements.
+# 1. Core Concepts
 
-A STEP implementation conforms when it preserves the required WorkNode files, state transitions, dependency constraints, evidence, and validation behavior described here.
+### 1.1 WorkNode
 
-## 2. Work graph
+A **WorkNode** is any directory that contains:
 
-A STEP workspace is a directed acyclic graph of WorkNodes, called a WorkDAG.
+* `PLAN.md`
+* `STATE.md`
+* `logs/` (may be empty until used)
 
-A WorkNode is a persistent unit of executable intent. Nodes may represent features, investigations, releases, migrations, decisions, or other bounded work.
+A WorkNode is a self-contained unit of work with:
 
-Edges represent explicit dependencies. A runner MUST NOT infer a dependency solely from directory layout or natural-language similarity. If dependency metadata is absent, a runner may execute only according to the ordering declared inside the selected node.
+* a roadmap (`PLAN.md`),
+* a progress table (`STATE.md`),
+* and per-step execution logs (`logs/*.md`).
 
-The protocol does not require a single repository, programming language, agent, or execution environment.
+The **meta-node** for the repository lives at:
 
-## 3. WorkNode layout
-
-A WorkNode is a directory containing:
-
-```text
-PLAN.md
-STATE.md
-logs/
+```
+self/
 ```
 
-`PLAN.md` defines intended work. `STATE.md` records current execution state. `logs/` preserves evidence produced while performing the work.
+This directory acts as both a WorkNode and the holder of this global protocol.
 
-Additional files MAY exist, but runners MUST treat these three artifacts as the node's protocol surface.
+---
 
-## 4. PLAN.md
+# 2. File Semantics
 
-A plan describes scope, steps, dependencies, and completion criteria.
+## 2.1 PLAN.md
 
-Each step MUST have a stable identifier and label:
+`PLAN.md` describes **the work to be performed** for this WorkNode.
 
-```markdown
-- Step 2.1: Validate the migration
-  - Depends on: `../prepare#1.3`
-  - Run the migration against a representative copy.
-  - Record the validation result and any exceptions.
-```
+* It must define steps using the format:
 
-The identifier has the form `P.S`, where `P` is a phase number and `S` is a numeric or dotted step number.
+  ```
+  - Step P.S: <Label>
+      <optional description or bullet list>
+  ```
 
-Step identifiers MUST NOT be reused for different work. After execution begins, identifiers and meanings MUST remain stable. Clarifications may be appended, but completed history must not be rewritten.
+  Where:
 
-A dependency target SHOULD use the form `<node-path>#<step-id>`. A node path without a step identifies completion of the entire node. Implementations MAY support an equivalent structured representation, provided it is persistent and inspectable.
+  * `P` = phase number (integer)
+  * `S` = step number (integer or dotted, e.g., `2.3`)
+  * `Label` = stable text identifier
 
-The descriptive bullets under a step define its work and completion criteria. A runner MUST have enough criteria to validate completion before marking the step done. If the criteria are insufficient, the step SHOULD be blocked or clarified rather than guessed.
+* `PLAN.md` may also describe relationships to other nodes
+  (e.g., “implementation occurs under services/kia/docs/work/”),
+  but these are *informational*—PROTOCOL does not route automatically.
 
-## 5. STATE.md
+PLAN is **not** allowed to redefine WorkTree global rules.
+Those exist only in PROTOCOL.md.
 
-State is represented as a table:
+---
+
+## 2.2 STATE.md
+
+`STATE.md` describes the **current status of each step** in a WorkNode.
+
+It must contain a table:
 
 ```markdown
 | Phase | Step | Label | Status | Progress Log |
 | ----- | ---- | ----- | ------ | ------------ |
-| 2 | 2.1 | Validate the migration | todo | - |
 ```
 
-`Phase`, `Step`, and `Label` MUST correspond to the plan.
+Rules:
 
-Allowed statuses are:
+* `Phase`, `Step`, and `Label` must match those in PLAN.md exactly.
+* `Status` ∈ `{todo, in-progress, blocked, done, superseded}`
+* `Progress Log` is either:
 
-- `todo` — eligible when its dependencies are satisfied
-- `in-progress` — currently being executed
-- `blocked` — unable to proceed; the reason must be recorded
-- `done` — completion criteria have been validated
-- `superseded` — intentionally replaced or made unnecessary
+  * `-` (no log yet)
+  * `logs/p<P>-s<S>.md` (relative to NODE_ROOT)
 
-A node SHOULD have no more than one `in-progress` step unless its execution profile explicitly permits safe parallelism.
+Exactly **one** step may be `in-progress` at a time.
 
-The progress log is `-` before execution or a relative path such as `logs/p2-s2.1.md`.
+---
 
-## 6. Logs and evidence
+## 2.3 logs/
 
-Every step that reaches `in-progress`, `blocked`, `done`, or `superseded` MUST have a log.
+Every step with `in-progress`, `done`, or `superseded` status must have a log file:
 
-The canonical filename is:
-
-```text
+```
 logs/p<phase>-s<step>.md
 ```
 
-A log SHOULD contain:
+Log file template:
 
 ```markdown
-# Phase 2 - Step 2.1: Validate the migration
+# Phase P – Step S: <Label>
 status: in-progress
-started: 2026-01-01T00:00:00Z
+started: 2025-00-00T00:00:00Z
 
 ## Scope
+<Short description copied or adapted from PLAN.md for this step.>
 
 ## Plan
+- [ ] Subtask description…
+- [ ] …
 
 ## Notes
+- YYYY-MM-DDTHH:MM:SSZ Description of an action taken.
 
 ## Outcomes
+(Filled when status becomes done)
 ```
 
-Logs are append-only execution evidence. Corrections MAY clarify metadata, but implementations MUST NOT erase material actions, decisions, failures, or results.
+When complete:
 
-A completed log MUST record its completion time, outcomes, and the evidence used to validate the step. A blocked log MUST record the blocking condition and what would allow execution to resume.
+* Mark all tasks `[x]`
+* Add `completed: <ISO timestamp>`
+* Fill `## Outcomes`
+* Update `STATE.md` status → `done`
 
-## 7. Consistency invariants
+Logs are **append-only** except for:
 
-Once `STATE.md` exists:
+* status fixes
+* timestamp additions
+* expanding/finishing plan/notes/outcomes
 
-1. Every plan step MUST have exactly one state row.
-2. State MUST NOT contain steps absent from the plan.
-3. Step identifiers and labels MUST agree between plan and state.
-4. Every referenced log MUST exist inside the node.
-5. A log filename MUST identify the step it documents.
-6. A `done` step MUST have recorded outcomes and validation evidence.
-7. A step MUST NOT begin until its declared dependencies are satisfied.
-8. Executed steps MUST be superseded rather than deleted.
+---
 
-New work is added by appending plan steps and matching `todo` rows. A `todo` step with no execution evidence MAY be removed through an explicit maintenance action.
+# 3. Node Bootstrap
 
-## 8. Bootstrap
+If `PLAN.md` exists and `STATE.md` does **not**:
 
-If `PLAN.md` exists and `STATE.md` does not, a runner MAY bootstrap the node by:
+1. Parse all steps from PLAN.
+2. Create `STATE.md` with one row per step:
 
-1. Parsing all plan steps.
-2. Creating one matching `todo` state row per step.
-3. Setting each progress log to `-`.
-4. Creating `logs/` if necessary.
-5. Saving the new state atomically.
-6. Stopping without beginning execution.
+   * `Status = todo`
+   * `Progress Log = -`
+3. Save and stop.
 
-A runner MUST NOT overwrite an existing state during bootstrap.
+This is the only time STATE is auto-generated.
 
-## 9. Step selection
+Workers must never regenerate STATE once it exists.
 
-For a selected WorkNode, a runner determines the next action as follows:
+During this bootstrap flow, the `worktree init` command MUST NOT invoke the general
+PLAN–STATE validator from §4. The bootstrap steps listed above are the sole source
+of truth for the initial consistency of PLAN and STATE; any attempt to validate
+before STATE exists would reject this normal initialization path.
 
-1. Resume the existing `in-progress` step, if one exists.
-2. Otherwise select a `todo` step whose dependencies are satisfied.
-3. Order eligible steps by phase and then by numeric step identifier.
-4. If no step is eligible, report whether the node is complete or blocked.
+Instead, `worktree init` should detect the PLAN-only situation, derive STATE rows
+from the parsed PLAN, write the new STATE.md atomically, and exit successfully
+without running the broader validator.
 
-Selection MUST be deterministic for the same recorded graph and state.
+This ensures that the first-time initialization of a WorkNode aligns with the
+protocol, and that errors are still reported when STATE.md already exists or when
+PLAN.md is malformed.
 
-## 10. Execution lifecycle
+### Implementation Notes
 
-A runner executing one step SHOULD:
+* Check for `PLAN.md` before `STATE.md` during initialization; if `STATE.md` is
+  missing, skip any code paths that would run the full validator and instead use
+  this bootstrap routine.
+* Build the initial `STATE.md` rows directly from the parsed PLAN steps, mark
+  them as `todo`, and set `Progress Log = -` before writing the file.
+* After writing the bootstrap STATE, fail fast if the layout violates other
+  invariants (e.g., residual STATE without PLAN) but otherwise exit immediately,
+  since there is no history to validate yet.
 
-1. Read this protocol and the selected node's plan and state.
-2. Validate the node before mutation.
-3. Select the next actionable step.
-4. Create or load its log.
-5. Record `in-progress` in the log and state.
-6. Perform the planned work while appending material actions and observations.
-7. Validate the completion criteria.
-8. Record outcomes and validation evidence.
-9. Atomically update the log and state to `done`, `blocked`, or `superseded`.
-10. Stop at the configured execution boundary.
+---
 
-The default execution boundary is one step. A runner MAY execute multiple steps only when it preserves dependency ordering, evidence, validation, isolation, and recoverability.
+# 4. PLAN–STATE Consistency (Strong Invariant)
 
-## 11. Handoff and resumption
+Once STATE.md exists:
 
-A WorkNode must be resumable from its persistent artifacts.
+1. **Every PLAN step must appear in STATE.**
+2. **STATE must not contain steps absent in PLAN.**
+3. **Step identifiers (P.S) must never change.**
+4. **Step identifiers must never be reused for different work.**
+5. **Removing or renaming completed steps is forbidden.**
 
-A new participant SHOULD be able to determine:
+### Allowed modifications:
 
-- what the node intends to accomplish
-- which dependencies govern it
-- what has already happened
-- what is currently in progress or blocked
-- what evidence supports completed work
-- what action is eligible next
+| Step status           | Allowed changes                       | Forbidden changes                       |
+| --------------------- | ------------------------------------- | --------------------------------------- |
+| `todo`                | Clarify label/description             | Change identifier, delete if logs exist |
+| `in-progress`         | Clarify label with explanation in log | Change identifier                       |
+| `done` / `superseded` | Add annotations only                  | Change semantics, delete, rename, re-ID |
 
-Unrecorded conversational context MUST NOT be required to interpret the node correctly.
+### Adding steps:
 
-## 12. Isolation and concurrency
+* Append new steps in PLAN under existing or new phases.
+* Add corresponding rows to STATE (`todo`, `Progress Log = -`).
 
-STEP does not mandate an isolation technology. A runner MAY use Git worktrees, branches, containers, virtual machines, sandboxes, or other mechanisms.
+### Removing steps:
 
-When concurrent work could interfere, the runner MUST isolate execution or serialize it. It MUST prevent two participants from mutating the same WorkNode state simultaneously.
+* Only steps that are still `todo` may be removed, and only via explicit maintenance steps.
+* Steps with logs or progress must be `superseded`, not removed.
 
-Changes produced in isolation MUST be reconciled with the persistent WorkNode artifacts before they are considered complete.
+### Logs:
 
-## 13. Validation
+* Log files may be renamed only if the step ID changes *as part of a documented maintenance step*.
+* Log contents may grow, but history must not be erased.
 
-Validation is part of execution, not an optional report after it.
+---
 
-A conforming runner MUST validate:
+# 5. Step Selection
 
-- required layout and parseable files
-- plan/state consistency
-- legal status values and transitions
-- dependency satisfaction
-- referenced logs and required metadata
-- completion criteria and recorded evidence
-- safe persistence of mutations
+When implementing a WorkNode:
 
-Domain-specific validation MAY include tests, builds, review, measurements, approvals, or external observations. The plan determines what evidence is sufficient.
+1. If any step has `Status = in-progress`, select it.
+2. Otherwise, select the lexicographically earliest:
 
-A runner MUST NOT mark a step done merely because an action was attempted.
+   * `Phase`
+   * then `Step`
+   * where `Status = todo`
+3. If no actionable steps remain:
 
-## 14. Runner responsibilities
+   * Return: “No work remaining for this WorkNode.”
 
-A runner interprets the protocol; it does not own the intent.
+This protocol guarantees deterministic progress.
 
-A runner MUST:
+---
 
-- operate on an explicitly selected node
-- preserve stable identities and history
-- respect dependencies and execution boundaries
-- make state changes inspectable
-- fail clearly when invariants are violated
-- avoid inventing missing routing or completion criteria
-- leave enough evidence for another participant to resume
+# 6. Execution Algorithm
 
-A runner MAY plan, delegate, invoke tools or agents, manage isolated environments, and coordinate multiple nodes, provided those behaviors preserve the protocol.
+For a single run, acting on a single WorkNode (`NODE_ROOT`):
 
-## 15. Extensions
+1. Read this protocol (`PROTOCOL.md`).
+2. Read `NODE_ROOT/PLAN.md` and `NODE_ROOT/STATE.md`.
+3. Select the next actionable step (see §5).
+4. Create or load the log file for this step.
+5. Ensure `status: in-progress` in log and STATE.
+6. Expand or refine the `## Plan` subtasks as needed.
+7. Perform the work described in the step:
 
-Implementations MAY add structured metadata, richer dependency forms, signatures, policies, permissions, or orchestration controls.
+   * Make code/doc/config changes under relevant directories.
+   * After each atomic action, append a timestamped entry to `## Notes`.
+8. If step is complete:
 
-Extensions MUST NOT silently weaken the core invariants. Portable WorkNodes SHOULD remain understandable from their Markdown artifacts without requiring a proprietary service.
+   * Check all checklist items `[x]`
+   * Add `completed:` timestamp
+   * Fill `## Outcomes`
+   * Update `STATE.md` → `done`
+9. Save all modified files.
+10. Stop after finishing exactly one step.
+11. Return: brief description + “Done.”
 
-## 16. Summary
+Implementers must not start a second step in the same run.
 
-STEP makes intent, state, dependencies, evidence, and validation persistent. It provides a shared execution surface on which different humans, agents, tools, and runners can cooperate without making any one implementation canonical.
+---
+
+# 7. Multi-Node Projects and Delegation
+
+* PROTOCOL does not decide which node a feature belongs to.
+* PLANs at various nodes may refer to each other.
+* A planner agent or human chooses `NODE_ROOT` for each run.
+* New features may require:
+
+  * updating multiple WorkNodes,
+  * or adding child WorkNodes.
+
+Workers must not:
+
+* guess routing based on natural language,
+* create new WorkNodes unless PLAN explicitly instructs it.
+
+---
+
+# 8. Runner Responsibilities
+
+Runners (human or orchestrator) control which node is worked on.
+
+To run work on a given node:
+
+```
+Open PROTOCOL.md and follow it as the Work Protocol.
+Treat NODE_ROOT = <path-to-node>.
+Execute the next actionable step in NODE_ROOT/STATE.md.
+```
+
+Runners must ensure:
+
+* Only one implementer works on a node at a time.
+* Nodes are invoked intentionally.
+* Audit tools are run periodically.
+
+---
+
+# 9. Audit Behavior (Optional but Recommended)
+
+Audits check:
+
+* Required files exist (PLAN, STATE, logs/)
+* PLAN–STATE consistency
+* Allowed vs. forbidden mutations
+* Log structure and timestamps
+* Identity invariants
+* Multi-node references
+
+Audits must fail fast if any violation is detected.
+
+---
+
+# 10. Summary
+
+This protocol guarantees:
+
+* deterministic progress
+* crash-safe mutation
+* immutable history
+* clear routing
+* recursive WorkNodes with stable identities
+* predictable behavior from humans and large language models
