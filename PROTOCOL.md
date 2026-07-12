@@ -27,7 +27,7 @@ A WorkNode is a self-contained unit of work with:
 The **meta-node** for the repository lives at:
 
 ```
-docs/work/
+<META_NODE_ROOT>
 ```
 
 This directory acts as both a WorkNode and the holder of this global protocol.
@@ -54,11 +54,11 @@ This directory acts as both a WorkNode and the holder of this global protocol.
   * `Label` = stable text identifier
 
 * `PLAN.md` may also describe relationships to other nodes
-  (e.g., “implementation occurs under services/kia/docs/work/”),
+  (e.g., “implementation occurs under <RELATED_NODE_ROOT>”),
   but these are *informational*—PROTOCOL does not route automatically.
 
 PLAN is **not** allowed to redefine WorkTree global rules.
-Those exist only in WORK_PROTOCOL.md.
+Those exist only in `<PROTOCOL_PATH>`.
 
 ---
 
@@ -145,12 +145,12 @@ This is the only time STATE is auto-generated.
 
 Workers must never regenerate STATE once it exists.
 
-During this bootstrap flow, the `worktree init` command MUST NOT invoke the general
+During this bootstrap flow, an implementation MUST NOT invoke the general
 PLAN–STATE validator from §4. The bootstrap steps listed above are the sole source
 of truth for the initial consistency of PLAN and STATE; any attempt to validate
 before STATE exists would reject this normal initialization path.
 
-Instead, `worktree init` should detect the PLAN-only situation, derive STATE rows
+Instead, an implementation should detect the PLAN-only situation, derive STATE rows
 from the parsed PLAN, write the new STATE.md atomically, and exit successfully
 without running the broader validator.
 
@@ -228,7 +228,7 @@ This protocol guarantees deterministic progress.
 
 For a single run, acting on a single WorkNode (`NODE_ROOT`):
 
-1. Read this protocol (`WORK_PROTOCOL.md`).
+1. Read this protocol (`<PROTOCOL_PATH>`).
 2. Read `NODE_ROOT/PLAN.md` and `NODE_ROOT/STATE.md`.
 3. Select the next actionable step (see §5).
 4. Create or load the log file for this step.
@@ -276,8 +276,8 @@ Runners (human or orchestrator) control which node is worked on.
 To run work on a given node:
 
 ```
-Open docs/work/WORK_PROTOCOL.md and follow it as the Work Protocol.
-Treat NODE_ROOT = <path-to-node>/docs/work/.
+Open <PROTOCOL_PATH> and follow it as the Work Protocol.
+Treat NODE_ROOT = <NODE_ROOT>.
 Execute the next actionable step in NODE_ROOT/STATE.md.
 ```
 
