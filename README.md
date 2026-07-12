@@ -14,7 +14,7 @@ This repository publishes a software idea, not a software package.
 
 There is no canonical implementation. Implementations are contextual, replaceable expressions of the protocol. They may use any language, agent, toolchain, or isolation strategy that preserves STEP's semantics.
 
-An early CLI generated using STEP remains in the repository history. It is evidence that the protocol contained enough structured intent to produce working software. The code itself is not the durable artifact.
+The first STEP protocol interpreter was generated using STEP. Originally exposed as `worktree`, it deterministically selects actionable work and manages WorkNode state. It remains the kernel beneath the author's current `step` application. The implementation is evidence of the protocol in use, not part of the protocol itself.
 
 Read `PROTOCOL.md`. From it, a human or agent should be able to understand the execution model, determine what work is actionable, resume or hand off work, validate outcomes from recorded evidence, and implement an appropriate runner.
 
