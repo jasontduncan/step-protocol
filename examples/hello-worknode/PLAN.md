@@ -1,9 +1,7 @@
 # WorkNode PLAN
 
-This PLAN describes the work to be executed inside this node and tracks its steps per docs/work/WORK_PROTOCOL.md.
+This PLAN describes a minimal STEP WorkNode.
 
-- Step 0.0.1: Document the WorkNode scope
+- Step hello-worknode.1: HelloWorkNode.DocumentScope
   - Summarize what this node represents and why it exists.
-  - List how to use `worktree run`, `worktree audit`, and `worktree init` here.
-  - Reference docs/work/WORK_PROTOCOL.md for layout expectations.
-
+  - Record the intended outcome and completion criteria.
