@@ -1,42 +1,21 @@
 # STEP — Structured Task Execution Protocol
 
-STEP is a protocol for structuring work shared by humans and intelligent agents.
+STEP is an agent-readable protocol for work shared by humans, LLM agents, and tools.
 
-It represents work as a persistent, inspectable graph of `WorkNodes`. Each node records:
+A STEP `WorkNode` is executable intent with persistent state and evidence:
 
-- `PLAN.md` — intended steps, dependencies, and completion criteria
-- `STATE.md` — current execution status
-- `logs/` — append-only execution evidence
+- `PLAN.md` — intended work
+- `STATE.md` — current execution state
+- `logs/` — execution evidence
 
-This gives participants enough common structure to determine what can happen next, resume interrupted work, validate outcomes, and hand execution from one actor to another.
+This repository publishes a software idea, not a software package.
 
-STEP is not primarily a task list, coding agent, or CLI. It is an execution protocol: a small set of durable conventions that makes work legible to both people and tools.
+[`PROTOCOL.md`](PROTOCOL.md) defines STEP and is authoritative. [`examples/hello-worknode/`](examples/hello-worknode/) is a minimal, non-normative example. [`self/`](self/) preserves evidence of STEP being used to develop and publish itself.
 
-## Start here
+There is no canonical implementation. Implementations are contextual, replaceable expressions of the protocol. They may use any language, agent, toolchain, or isolation strategy that preserves STEP's semantics.
 
-Read [`PROTOCOL.md`](PROTOCOL.md). It defines WorkNodes, their lifecycle, dependency and state semantics, evidence requirements, validation expectations, and the responsibilities of a runner.
+An early CLI generated using STEP remains in the repository history. It is evidence that the protocol contained enough structured intent to produce working software. The code itself is not the durable artifact.
 
-## What this repository contains
+Read `PROTOCOL.md`. From it, a human or agent should be able to understand the execution model, determine what work is actionable, resume or hand off work, validate outcomes from recorded evidence, and implement an appropriate runner.
 
-- [`PROTOCOL.md`](PROTOCOL.md) — the STEP protocol
-- [`examples/`](examples/) — a minimal WorkNode specimen
-- [`self/`](self/) — STEP work artifacts used to produce the early public artifact
-- [`LICENSE`](LICENSE) — the MIT license
-
-## Why this repository is small
-
-This repository is intentionally small. Its purpose is to publish the protocol, a minimal example, and evidence of the protocol in use.
-
-An early Node.js/TypeScript CLI scaffold was generated as part of the bootstrapping experiment. It is preserved in the repository's history, but it is not the protocol and is not presented as a canonical runner. Implementations may use different languages, tools, isolation strategies, and execution environments while preserving STEP's semantics.
-
-## An experiment
-
-This repository is intended to be read by both humans and coding agents. One way to explore the execution system implied by STEP is to give an agent this repository and ask:
-
-> Inspect this repository and treat `PROTOCOL.md` as the governing execution specification. Imagine a runner that implements this protocol, manages isolated Git worktrees, executes dependent engineering steps, invokes coding agents with controlled repository context, validates outcomes, preserves inspectable state, and can participate in extending itself. Explain what such a runner could do, how it differs from an ordinary coding assistant, and why a software organization might care.
-
-Git worktrees are part of that hypothetical runner, not a requirement of the protocol.
-
-## Status
-
-STEP is an early public protocol. It is published to be inspected, challenged, implemented, and extended. The full runner used in private work is not included.
+The protocol is the durable software. Implementations can be generated again.
