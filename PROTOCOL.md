@@ -27,7 +27,7 @@ A WorkNode is a self-contained unit of work with:
 The **meta-node** for the repository lives at:
 
 ```
-self/
+docs/work/
 ```
 
 This directory acts as both a WorkNode and the holder of this global protocol.
@@ -58,7 +58,7 @@ This directory acts as both a WorkNode and the holder of this global protocol.
   but these are *informational*—PROTOCOL does not route automatically.
 
 PLAN is **not** allowed to redefine WorkTree global rules.
-Those exist only in PROTOCOL.md.
+Those exist only in WORK_PROTOCOL.md.
 
 ---
 
@@ -228,7 +228,7 @@ This protocol guarantees deterministic progress.
 
 For a single run, acting on a single WorkNode (`NODE_ROOT`):
 
-1. Read this protocol (`PROTOCOL.md`).
+1. Read this protocol (`WORK_PROTOCOL.md`).
 2. Read `NODE_ROOT/PLAN.md` and `NODE_ROOT/STATE.md`.
 3. Select the next actionable step (see §5).
 4. Create or load the log file for this step.
@@ -276,8 +276,8 @@ Runners (human or orchestrator) control which node is worked on.
 To run work on a given node:
 
 ```
-Open PROTOCOL.md and follow it as the Work Protocol.
-Treat NODE_ROOT = <path-to-node>.
+Open docs/work/WORK_PROTOCOL.md and follow it as the Work Protocol.
+Treat NODE_ROOT = <path-to-node>/docs/work/.
 Execute the next actionable step in NODE_ROOT/STATE.md.
 ```
 

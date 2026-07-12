@@ -3,7 +3,7 @@
 This PLAN describes the implementation roadmap for the WorkTree system.
 
 - Global behavior, invariants, and file semantics are defined in
-  `../PROTOCOL.md`.
+  `docs/work/WORK_PROTOCOL.md`.
 - This document only defines the work required to build and evolve WorkTree
   itself: libraries, CLI, audits, examples, and docs.
 
@@ -138,7 +138,7 @@ Ensure WorkTree itself conforms to the rules it enforces.
   - Ensure that initialization errors are only raised for truly invalid situations (e.g., conflicting existing STATE, malformed PLAN), not for the normal bootstrap flow.
 
 - Step 6.2: Clarify Node Bootstrap semantics in WORK_PROTOCOL
-  - Update ../PROTOCOL.md §3 (Node Bootstrap) to explicitly state that:
+  - Update docs/work/WORK_PROTOCOL.md §3 (Node Bootstrap) to explicitly state that:
     - During bootstrap, `worktree init` MUST NOT invoke the general PLAN–STATE validator.
     - The bootstrap process itself is the source of truth for the initial PLAN–STATE consistency.
   - Optionally add a brief “Implementation Notes” subsection under §3 to describe the intended control flow for `worktree init` in concrete terms, without changing the existing rules.

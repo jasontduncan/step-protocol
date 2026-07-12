@@ -10,7 +10,7 @@ A STEP `WorkNode` is executable intent with persistent state and evidence:
 
 This repository publishes a software idea, not a software package.
 
-[`PROTOCOL.md`](PROTOCOL.md) defines STEP and is authoritative. [`examples/hello-worknode/`](examples/hello-worknode/) is a minimal, non-normative example. [`self/`](self/) preserves evidence of STEP being used to develop and publish itself.
+[`PROTOCOL.md`](PROTOCOL.md) defines STEP and is authoritative. [`examples/hello-worknode/`](examples/hello-worknode/) is a minimal, non-normative example. [`provenance/worktree-bootstrap/`](provenance/worktree-bootstrap/) preserves the historical WorkNode that directed the early WorkTree implementation.
 
 There is no canonical implementation. Implementations are contextual, replaceable expressions of the protocol. They may use any language, agent, toolchain, or isolation strategy that preserves STEP's semantics.
 
