@@ -49,9 +49,10 @@ This directory acts as both a WorkNode and the holder of this global protocol.
 
   Where:
 
-  * `P` = phase number (integer)
-  * `S` = step number (integer or dotted, e.g., `2.3`)
-  * `Label` = stable text identifier
+  * `P` = stable phase identifier (semantic kebab-case recommended; legacy integers remain valid)
+  * `S` = step sequence within the phase (integer or dotted)
+  * `P.S` = complete stable step identifier
+  * `Label` = stable semantic text identifier
 
 * `PLAN.md` may also describe relationships to other nodes
   (e.g., “implementation occurs under <RELATED_NODE_ROOT>”),
@@ -80,7 +81,7 @@ Rules:
 * `Progress Log` is either:
 
   * `-` (no log yet)
-  * `logs/p<P>-s<S>.md` (relative to NODE_ROOT)
+  * `logs/p<P>-s<P.S>.md` (relative to NODE_ROOT)
 
 Exactly **one** step may be `in-progress` at a time.
 
@@ -97,7 +98,7 @@ logs/p<phase>-s<step>.md
 Log file template:
 
 ```markdown
-# Phase P – Step S: <Label>
+# Phase P – Step P.S: <Label>
 status: in-progress
 started: 2025-00-00T00:00:00Z
 
