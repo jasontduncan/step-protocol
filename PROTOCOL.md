@@ -1,10 +1,10 @@
-# WORK PROTOCOL
+# STEP — Structured Task Execution Protocol
 
-This document defines how human and LLM workers operate on this repository.
+This document defines how human and machine workers operate on a STEP WorkNode.
 
-It is **global**: it applies to all WorkNodes in the WorkTree.
-All nodes must follow these rules unless explicitly granted an exception
-in their own PLAN.
+It applies to every WorkNode governed by this protocol. A WorkNode may grant a
+documented exception in its own PLAN only where this protocol explicitly permits
+an exception.
 
 ---
 
@@ -24,13 +24,12 @@ A WorkNode is a self-contained unit of work with:
 * a progress table (`STATE.md`),
 * and per-step execution logs (`logs/*.md`).
 
-The **meta-node** for the repository lives at:
+`PROTOCOL_PATH` and `NODE_ROOT` are bindings supplied by a human or runner.
+They are not literal required paths. `PROTOCOL_PATH` identifies this protocol;
+`NODE_ROOT` identifies the WorkNode selected for one execution run.
 
-```
-<META_NODE_ROOT>
-```
-
-This directory acts as both a WorkNode and the holder of this global protocol.
+A repository may maintain a coordinating or meta-level WorkNode, but STEP does
+not require one or prescribe its location.
 
 ---
 
@@ -58,7 +57,7 @@ This directory acts as both a WorkNode and the holder of this global protocol.
   (e.g., “implementation occurs under <RELATED_NODE_ROOT>”),
   but these are *informational*—PROTOCOL does not route automatically.
 
-PLAN is **not** allowed to redefine WorkTree global rules.
+PLAN is **not** allowed to redefine protocol-wide rules.
 Those exist only in `<PROTOCOL_PATH>`.
 
 ---
@@ -83,7 +82,7 @@ Rules:
   * `-` (no log yet)
   * `logs/p<P>-s<P.S>.md` (relative to NODE_ROOT)
 
-Exactly **one** step may be `in-progress` at a time.
+At most **one** step may be `in-progress` at a time.
 
 ---
 
@@ -123,7 +122,8 @@ When complete:
 * Fill `## Outcomes`
 * Update `STATE.md` status → `done`
 
-Logs are **append-only** except for:
+Logs are **append-oriented**. Existing history must not be erased. The following
+structured updates are allowed:
 
 * status fixes
 * timestamp additions
@@ -307,11 +307,15 @@ Audits must fail fast if any violation is detected.
 
 # 10. Summary
 
-This protocol guarantees:
+When its requirements are followed, this protocol provides:
 
-* deterministic progress
-* crash-safe mutation
-* immutable history
-* clear routing
-* recursive WorkNodes with stable identities
-* predictable behavior from humans and large language models
+* deterministic actionable-step selection
+* explicit, durable execution state
+* append-oriented per-step evidence
+* intentional WorkNode routing
+* stable step identities
+* a predictable resumption surface for humans and machine workers
+
+Crash recovery, concurrent mutation, protocol versioning, and conformance are
+subjects of the STEP hardening process. Implementations must not infer stronger
+guarantees than the rules above provide.
