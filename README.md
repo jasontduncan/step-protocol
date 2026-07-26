@@ -12,11 +12,14 @@ A STEP `WorkNode` keeps three things separate:
 - `STATE.md` — current execution state
 - `logs/` — per-step evidence and outcomes
 
+A WorkNode can be seeded with `PLAN.md` alone. Bootstrap materializes
+`STATE.md` and `logs/`, then stops before beginning work.
+
 The active conversation, model, runner, branch, or process may disappear. The
 WorkNode remains available for inspection, resumption, and handoff.
 
 [`PROTOCOL.md`](PROTOCOL.md) is authoritative. [`examples/`](examples/) contains
-an unstarted WorkNode and an illustrative cross-session handoff.
+a PLAN-only seed, an unstarted WorkNode, and an illustrative cross-session handoff.
 [`applications/`](applications/) maps STEP to long-running agents, deep
 research, and human-agent handoff without extending the protocol.
 
