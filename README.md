@@ -3,8 +3,11 @@
 STEP is a small, filesystem-native protocol for durable work across agents,
 humans, tools, and execution sessions.
 
-> **[Try STEP in the agent and repository you already use.](TRY_STEP.md)**
-> No runner, package, or new interface is required.
+> **[Fork STEP Seed and let your agent build the kernel it needs to finish.](https://github.com/jasontduncan/step-seed)**
+> It begins with a PLAN and no runner, dependencies, or Actions.
+
+Prefer the smaller protocol-only path? [Try STEP in the agent and repository you
+already use.](TRY_STEP.md)
 
 A STEP `WorkNode` keeps three things separate:
 
