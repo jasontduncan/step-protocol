@@ -12,13 +12,17 @@ an exception.
 
 ### 1.1 WorkNode
 
-A **WorkNode** is any directory that contains:
+An initialized **WorkNode** is any directory that contains:
 
 * `PLAN.md`
 * `STATE.md`
 * `logs/` (may be empty until used)
 
-A WorkNode is a self-contained unit of work with:
+Before initialization, `NODE_ROOT` may instead be a **WorkNode seed** containing
+only `PLAN.md`. A seed is valid bootstrap input but is not yet an initialized
+WorkNode. Section 3 materializes its execution state.
+
+An initialized WorkNode is a self-contained unit of work with:
 
 * a roadmap (`PLAN.md`),
 * a progress table (`STATE.md`),
@@ -133,42 +137,52 @@ structured updates are allowed:
 
 # 3. Node Bootstrap
 
-If `PLAN.md` exists and `STATE.md` does **not**:
+`PLAN.md` is the only required WorkNode artifact at bootstrap entry. If
+`PLAN.md` exists and `STATE.md` does **not**, treat `NODE_ROOT` as a
+WorkNode seed and:
 
 1. Parse all steps from PLAN.
-2. Create `STATE.md` with one row per step:
+2. If `logs/` is absent, create it.
+3. Create `STATE.md` with one row per step:
 
    * `Status = todo`
    * `Progress Log = -`
-3. Save and stop.
+4. Save and stop.
 
-This is the only time STATE is auto-generated.
+Bootstrap creates no per-step log. The first step log is created only when a
+later execution run begins that step.
 
-Workers must never regenerate STATE once it exists.
+If `logs/` already exists, it must be a directory. If it contains any file
+matching the step-log naming convention, bootstrap must fail rather than infer
+STATE from orphaned execution history.
+
+This is the only time STATE is auto-generated. Workers must never regenerate
+STATE once it exists.
 
 During this bootstrap flow, an implementation MUST NOT invoke the general
-PLAN–STATE validator from §4. The bootstrap steps listed above are the sole source
-of truth for the initial consistency of PLAN and STATE; any attempt to validate
-before STATE exists would reject this normal initialization path.
+PLAN–STATE validator from §4. The bootstrap steps listed above are the sole
+source of truth for the initial consistency of PLAN and STATE; any attempt to
+validate before STATE exists would reject this normal initialization path.
 
-Instead, an implementation should detect the PLAN-only situation, derive STATE rows
-from the parsed PLAN, write the new STATE.md atomically, and exit successfully
-without running the broader validator.
+Instead, an implementation must detect the PLAN-only situation, derive STATE
+rows from the parsed PLAN, ensure `logs/` exists, write the new `STATE.md`
+atomically, and exit successfully without running the broader validator.
 
-This ensures that the first-time initialization of a WorkNode aligns with the
-protocol, and that errors are still reported when STATE.md already exists or when
-PLAN.md is malformed.
+This ensures that bootstrap turns a PLAN-only seed into an initialized WorkNode
+with no invented execution history. Errors are still reported when PLAN is
+malformed, `logs/` is not a directory, or orphaned step logs make recovery
+ambiguous.
 
 ### Implementation Notes
 
-* Check for `PLAN.md` before `STATE.md` during initialization; if `STATE.md` is
-  missing, skip any code paths that would run the full validator and instead use
-  this bootstrap routine.
+* Check for `PLAN.md` before `STATE.md` during initialization; if `STATE.md`
+  is missing, skip any code paths that would run the full validator and instead
+  use this bootstrap routine.
+* Parse and validate PLAN before creating either derived artifact.
 * Build the initial `STATE.md` rows directly from the parsed PLAN steps, mark
-  them as `todo`, and set `Progress Log = -` before writing the file.
-* After writing the bootstrap STATE, fail fast if the layout violates other
-  invariants (e.g., residual STATE without PLAN) but otherwise exit immediately,
-  since there is no history to validate yet.
+  them as `todo`, and set `Progress Log = -`.
+* Create `logs/` if absent, write `STATE.md` atomically, and exit immediately.
+  Do not create a step log or begin work during bootstrap.
 
 ---
 
