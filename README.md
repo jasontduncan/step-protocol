@@ -3,6 +3,9 @@
 STEP is a small, filesystem-native protocol for durable work across agents,
 humans, tools, and execution sessions.
 
+> **[Try STEP in the agent and repository you already use.](TRY_STEP.md)**
+> No runner, package, or new interface is required.
+
 A STEP `WorkNode` keeps three things separate:
 
 - `PLAN.md` — intended work and stable step identity
